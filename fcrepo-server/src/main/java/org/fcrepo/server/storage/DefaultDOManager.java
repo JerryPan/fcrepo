@@ -112,6 +112,8 @@ public class DefaultDOManager
     protected DOTranslator m_translator;
 
     protected ILowlevelStorage m_permanentStore;
+    
+    protected FedoraStorageHintProvider m_hintProvider;
 
     protected DOValidator m_validator;
 
@@ -373,6 +375,23 @@ public class DefaultDOManager
         m_permanentStore =
                 (ILowlevelStorage) getServer()
                         .getModule("org.fcrepo.server.storage.lowlevel.ILowlevelStorage");
+        if (m_permanentStore == null) {
+            logger.error("LowlevelStorage not loaded");
+            throw new ModuleInitializationException("LowlevelStorage not loaded",
+                                                    getRole());
+        }
+        // get ref to FedoraStorageHintProvider
+        m_hintProvider = null;
+        try {
+            Module module = getServer().getModule("org.fcrepo.server.storage.lowlevel.ILowlevelStorage");
+            String hinterProviderName = module.getParameter("storage_hints_provider");
+            m_hintProvider = (FedoraStorageHintProvider) Class.forName(hinterProviderName).newInstance();            
+        }
+        catch (Throwable t) { 
+            //ignore all exception and set the provider to be the default Null implemetion
+            logger.warn("Storage hints provider not loaded correct, fall back to the default no-op implementation");
+            m_hintProvider = new NullStorageHintsProvider();
+        }
         if (m_permanentStore == null) {
             logger.error("LowlevelStorage not loaded");
             throw new ModuleInitializationException("LowlevelStorage not loaded",
@@ -1203,17 +1222,18 @@ public class DefaultDOManager
                                     mimeTypedStream = m_contentManager.getExternalContent(params);
                                     logger.info("Getting managed datastream from remote location: " + dmc.DSLocation);
                                 }
+                                Map<String, String> dsHints = m_hintProvider.getHintsForAboutToBeStoredDatastream(obj, dmc.DatastreamID);
                                 if (obj.isNew()) {
-                                    dmc.DSSize = m_permanentStore.addDatastream(internalId, mimeTypedStream.getStream());
+                                    dmc.DSSize = m_permanentStore.addDatastream(internalId, mimeTypedStream.getStream(), dsHints);
                                 } else {
                                     // object already existed...so we may need to call
                                     // replace if "add" indicates that it was already there
                                     try {
                                         dmc.DSSize = m_permanentStore
-                                                .addDatastream(internalId, mimeTypedStream.getStream());
+                                                .addDatastream(internalId, mimeTypedStream.getStream(), dsHints);
                                     } catch (ObjectAlreadyInLowlevelStorageException oailse) {
                                         dmc.DSSize = m_permanentStore
-                                                .replaceDatastream(internalId, mimeTypedStream.getStream());
+                                                .replaceDatastream(internalId, mimeTypedStream.getStream(), dsHints);
                                     }
                                 }
                                 if(mimeTypedStream != null) {
@@ -1322,14 +1342,15 @@ public class DefaultDOManager
                 // STORAGE:
                 // write XML serialization of object to persistent storage
                 logger.debug("Storing digital object");
+                Map<String, String> objectHints = m_hintProvider.getHintsForAboutToBeStoredObject(obj);
                 if (obj.isNew()) {
                     m_permanentStore.addObject(obj.getPid(),
                                                new ByteArrayInputStream(out
-                                                       .toByteArray()));
+                                                       .toByteArray()), objectHints);
                 } else {
                     m_permanentStore.replaceObject(obj.getPid(),
                                                    new ByteArrayInputStream(out
-                                                           .toByteArray()));
+                                                           .toByteArray()), objectHints);
                 }
 
                 // INVALIDATE DOREADER CACHE:

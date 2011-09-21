@@ -105,14 +105,21 @@ public class AkubraLowlevelStorage
     // ILowlevelStorage methods
     //
 
-    public long addDatastream(String dsKey, InputStream content)
+    public long addDatastream(String dsKey, InputStream content, Map<String, String> hints)
             throws LowlevelStorageException {
         return add(datastreamStore, dsKey, content);
     }
 
-    public void addObject(String objectKey, InputStream content)
+    public long addDatastream(String pid, InputStream content) throws LowlevelStorageException {
+        return this.addDatastream(pid, content, null);
+    }
+
+    public void addObject(String objectKey, InputStream content, Map<String, String> hints)
             throws LowlevelStorageException {
         add(objectStore, objectKey, content);
+    }
+    public void addObject(String pid, InputStream content) throws LowlevelStorageException {
+        this.addObject(pid, content, null);
     }
 
     public void auditDatastream() throws LowlevelStorageException {
@@ -141,14 +148,21 @@ public class AkubraLowlevelStorage
         remove(objectStore, objectKey);
     }
 
-    public long replaceDatastream(String dsKey, InputStream content)
+    public long replaceDatastream(String dsKey, InputStream content, Map<String, String> hints)
             throws LowlevelStorageException {
         return replace(datastreamStore, dsKey, content, forceSafeDatastreamOverwrites);
     }
+    
+    public long replaceDatastream(String pid, InputStream content) throws LowlevelStorageException {
+        return this.replaceDatastream(pid, content, null);
+    }
 
-    public void replaceObject(String objectKey, InputStream content)
+    public void replaceObject(String objectKey, InputStream content, Map<String, String> hints)
             throws LowlevelStorageException {
         replace(objectStore, objectKey, content, forceSafeObjectOverwrites);
+    }
+    public void replaceObject(String pid, InputStream content) throws LowlevelStorageException {
+        this.replaceObject(pid, content, null);
     }
 
     public InputStream retrieveDatastream(String dsKey)
