@@ -107,7 +107,7 @@ public class AkubraLowlevelStorage
 
     public long addDatastream(String dsKey, InputStream content, Map<String, String> hints)
             throws LowlevelStorageException {
-        return add(datastreamStore, dsKey, content);
+        return add(datastreamStore, dsKey, content, hints);
     }
 
     public long addDatastream(String pid, InputStream content) throws LowlevelStorageException {
@@ -116,7 +116,7 @@ public class AkubraLowlevelStorage
 
     public void addObject(String objectKey, InputStream content, Map<String, String> hints)
             throws LowlevelStorageException {
-        add(objectStore, objectKey, content);
+        add(objectStore, objectKey, content, hints);
     }
     public void addObject(String pid, InputStream content) throws LowlevelStorageException {
         this.addObject(pid, content, null);
@@ -150,7 +150,7 @@ public class AkubraLowlevelStorage
 
     public long replaceDatastream(String dsKey, InputStream content, Map<String, String> hints)
             throws LowlevelStorageException {
-        return replace(datastreamStore, dsKey, content, forceSafeDatastreamOverwrites);
+        return replace(datastreamStore, dsKey, content, forceSafeDatastreamOverwrites, hints);
     }
     
     public long replaceDatastream(String pid, InputStream content) throws LowlevelStorageException {
@@ -159,7 +159,7 @@ public class AkubraLowlevelStorage
 
     public void replaceObject(String objectKey, InputStream content, Map<String, String> hints)
             throws LowlevelStorageException {
-        replace(objectStore, objectKey, content, forceSafeObjectOverwrites);
+        replace(objectStore, objectKey, content, forceSafeObjectOverwrites, hints);
     }
     public void replaceObject(String pid, InputStream content) throws LowlevelStorageException {
         this.replaceObject(pid, content, null);
@@ -202,13 +202,13 @@ public class AkubraLowlevelStorage
 
     private static long add(BlobStore store,
                             String key,
-                            InputStream content)
+                            InputStream content, Map<String, String> hints)
             throws ObjectAlreadyInLowlevelStorageException {
         BlobStoreConnection connection = null;
         try {
             URI blobId = getBlobId(key);
-            connection = getConnection(store);
-            Blob blob = getBlob(connection, blobId, null);
+            connection = getConnection(store, hints);
+            Blob blob = getBlob(connection, blobId, hints);
             OutputStream out = openOutputStream(blob, -1, false);
             copy(content, out);
             try {
@@ -241,7 +241,7 @@ public class AkubraLowlevelStorage
         BlobStoreConnection connection = null;
         try {
             URI blobId = getBlobId(key);
-            connection = getConnection(store);
+            connection = getConnection(store, null);
             Blob blob = getBlob(connection, blobId, null);
             if (exists(blob)) {
                 delete(blob);
@@ -256,12 +256,13 @@ public class AkubraLowlevelStorage
     private static long replace(BlobStore store,
                                 String key,
                                 InputStream content,
-                                boolean forceSafeOverwrite)
+                                boolean forceSafeOverwrite,
+                                Map<String, String> hints)
             throws LowlevelStorageException {
         BlobStoreConnection connection = null;
         try {
             URI blobId = getBlobId(key);
-            connection = getConnection(store);
+            connection = getConnection(store, hints);
             Blob blob = getBlob(connection, blobId, null);
             if (exists(blob)) {
                 if (forceSafeOverwrite) {
@@ -292,7 +293,7 @@ public class AkubraLowlevelStorage
         BlobStoreConnection connection = null;
         boolean successful = false;
         try {
-            connection = getConnection(store);
+            connection = getConnection(store, null);
             Iterator<URI> blobIds = listBlobIds(connection);
             successful = true;
             return new ConnectionClosingKeyIterator(connection, blobIds);
@@ -398,7 +399,7 @@ public class AkubraLowlevelStorage
         boolean successful = false;
         try {
             URI blobId = getBlobId(key);
-            connection = getConnection(store);
+            connection = getConnection(store, null);
             Blob blob = getBlob(connection, blobId, null);
             content = openInputStream(blob);
             successful = true;
@@ -420,7 +421,7 @@ public class AkubraLowlevelStorage
         boolean successful = false;
         try {
             URI blobId = getBlobId(key);
-            connection = getConnection(store);
+            connection = getConnection(store, null);
             Blob blob = getBlob(connection, blobId, null);
             return blob.getSize();
         } catch (MissingBlobException e) {
@@ -435,9 +436,9 @@ public class AkubraLowlevelStorage
     }
 
 
-    private static BlobStoreConnection getConnection(BlobStore store) {
+    private static BlobStoreConnection getConnection(BlobStore store, Map<String, String> hints) {
         try {
-            return store.openConnection(null, null);
+            return store.openConnection(null, hints);
         } catch (IOException e) {
             throw new FaultException(
                     "System error getting blob store connection", e);
